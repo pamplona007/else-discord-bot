@@ -1,29 +1,36 @@
-const { REST } = require("@discordjs/rest"); // Define REST.
-const { Routes } = require("discord-api-types/v9"); // Define Routes.
-const fs = require("fs"); // Define fs (file system).
-const { Client, Intents, Collection } = require("discord.js"); // Define Client, Intents, and Collection.
+import { REST } from "@discordjs/rest";
+import { Routes } from "discord-api-types/v9";
+import fs from "fs";
+import { Client, Intents, Collection } from "discord.js";
+import dotenv from "dotenv";
+import mongoose from "mongoose";
+
+dotenv.config();
+await mongoose.connect(process.env.MONGO_URI);
+
 const client = new Client({
   intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES],
-}); // Connect to our discord bot.
-const commands = new Collection(); // Where the bot (slash) commands will be stored.
-const commandarray = []; // Array to store commands for sending to the REST API.
-const token = process.env.DISCORD_TOKEN; // Token from Railway Env Variable.
-// Execute code when the "ready" client event is triggered.
-client.once("ready", () => {
+});
+const commands = new Collection();
+const commandarray = [];
+const token = process.env.DISCORD_TOKEN;
+
+client.once("ready", async () => {
   const commandFiles = fs
     .readdirSync("src/Commands")
-    .filter(file => file.endsWith(".js")); // Get and filter all the files in the "Commands" Folder.
+    .filter(file => file.endsWith(".js"));
 
-  // Loop through the command files
   for (const file of commandFiles) {
-    const command = require(`./Commands/${file}`); // Get and define the command file.
-    commands.set(command.data.name, command); // Set the command name and file for handler to use.
-    commandarray.push(command.data.toJSON()); // Push the command data to an array (for sending to the API).
+    const command = await import(`./Commands/${file}`);
+    commands.set(command.default.data.name, command.default);
+    commandarray.push(command.default.data.toJSON());
+
+    console.log(`Loaded command ${command.default.data.name}`);
   }
 
-  const rest = new REST({ version: "9" }).setToken(token); // Define "rest" for use in registering commands
-  // Register slash commands.
-  ;(async () => {
+  const rest = new REST({ version: "9" }).setToken(token);
+
+  ; (async () => {
     try {
       console.log("Started refreshing application (/) commands.");
 
@@ -38,7 +45,7 @@ client.once("ready", () => {
   })();
   console.log(`Logged in as ${client.user.tag}!`);
 });
-// Command handler.
+
 client.on("interactionCreate", async interaction => {
   if (!interaction.isCommand()) return;
 
@@ -57,4 +64,4 @@ client.on("interactionCreate", async interaction => {
   }
 });
 
-client.login(token); // Login to the bot client via the defined "token" string.
+client.login(token);
